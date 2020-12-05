@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Python 3.8
+        uses: actions/setup-python@v2.1.4
+        with:
+          python-version: '3.8'
+          architecture: 'x64'
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Publish to PyPI
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+          poetry publish --build
+#          poetry config repositories.testpypi https://test.pypi.org/legacy
+#          poetry config pypi-token.testpypi ${{ secrets.TEST_PYPI_TOKEN }}
+#          poetry publish --build -r testpypi

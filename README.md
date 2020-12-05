@@ -4,6 +4,9 @@ https://github.com/tupui/apophis/actions?query=workflow%3A%22Tests%22
 [![Code Quality](https://github.com/tupui/apophis/workflows/Code%20Quality/badge.svg?branch=master)](
 https://github.com/tupui/apophis/actions?query=workflow%3A%22Code+Quality%22
 )
+[![Package version](https://img.shields.io/pypi/v/apophis?color=%2334D058&label=pypi%20package)](
+https://pypi.org/project/apophis
+)
 
 # Apophis: A python client for Kraken
 
@@ -31,7 +34,7 @@ with Apophis() as client:
 **You want to say thanks?**
 
 <p align="center">
-<a href="https://www.buymeacoffee.com/tupui" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height=30" ></a>
+<a href="https://www.buymeacoffee.com/tupui" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee: https://www.buymeacoffee.com/tupui" height=30" ></a>
 </p>
 
 
