@@ -1,0 +1,69 @@
+[tool.poetry]
+name = "apophis"
+version = "1.0"
+description = "Apophis: A python client for Kraken"
+authors = ["Pamphile Roy <roy.pamphile@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tupui/apophis"
+keywords = ["cryptocurrency", "kraken", "API", "REST"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pydantic = "^1.7.2"
+typer = {extras = ["all"], version = "^0.3.2"}
+requests = "^2.25.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.1.2"
+pytest-xdist = "^2.1.0"
+pytest-cov = "^2.10.1"
+coverage = {extras = ["all"], version = "^5.3"}
+pre-commit = "^2.9.2"
+
+[tool.poetry.scripts]
+apophis = 'apophis.console:app'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--durations=10 --color=yes --code-highlight=yes -rA"
+testpaths = [
+    "tests"
+]
+
+[tool.coverage.run]
+source = ["apophis"]
+
+[tool.coverage.report]
+skip_covered = true
+skip_empty = true
+
+[tool.isort]
+profile = "black"
+line_length = 88
+atomic = true
+include_trailing_comma = true
+lines_after_imports = 2
+lines_between_types = 1
+use_parentheses = true
+src_paths = ["apophis", "tests"]
+filter_files = true
+known_first_party = "apophis"
+
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.venv
+  | _build
+  | build
+  | dist
+)/
+'''
