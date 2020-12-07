@@ -1,4 +1,4 @@
-"""Kraken.com cryptocurrency Exchange API."""
+"""Low level client for Kraken and Kraken Future."""
 import base64
 import hashlib
 import hmac
@@ -78,6 +78,9 @@ class Apophis:
     """Interact with Kraken's API.
 
     Without specifying key/secret pair, only public queries can be performed.
+
+    You can change the attribute ``uri`` if you want to call the conformance
+    environment of Kraken Future.
 
     Parameters
     ----------
