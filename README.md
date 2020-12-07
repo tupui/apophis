@@ -13,6 +13,32 @@ https://pypi.org/project/apophis
 Apophis is a Python client for Kraken's REST API. It provides a common interface
 for both *Kraken* and *Kraken Future*.
 
+Public endpoints can be accessed without authentication.
+```python
+from apophis import Kraken
+
+with Kraken() as exchange:
+    price = exchange.market_price(pair='XXRPZEUR')
+    print(price)
+
+# 0.51081
+```
+
+For placing orders, authentication is necessary:
+```python
+from apophis import Kraken
+
+key = ...
+secret = ...
+with Kraken(key, secret) as exchange:
+    order = exchange.buy(pair='XXRPZEUR', volume=1000, price=0.5)
+
+# Buying 1000 XXRPZEUR at 0.5 -> 500.0€
+```
+
+Alternatively, the low level API can be directly used to perform any kind of
+query.
+
 ```python
 from apophis import Apophis
 
@@ -20,15 +46,15 @@ with Apophis() as client:
     response = client.query('Ticker', {'pair': 'XXRPZEUR'})
     print(response['result'])
 
-{'XXRPZEUR': {'a': ['0.48683000', '33129', '33129.000'],
-              'b': ['0.48659000', '2915', '2915.000'],
-              'c': ['0.48719000', '41.55695712'],
-              'v': ['13015397.92184023', '46789050.96995769'],
-              'p': ['0.48149626', '0.47328592'],
-              't': [5110, 19079],
-              'l': ['0.45331000', '0.44697000'],
-              'h': ['0.49354000', '0.49681000'],
-              'o': '0.45730000'}}
+# {'XXRPZEUR': {'a': ['0.48683000', '33129', '33129.000'],
+#               'b': ['0.48659000', '2915', '2915.000'],
+#               'c': ['0.48719000', '41.55695712'],
+#               'v': ['13015397.92184023', '46789050.96995769'],
+#               'p': ['0.48149626', '0.47328592'],
+#               't': [5110, 19079],
+#               'l': ['0.45331000', '0.44697000'],
+#               'h': ['0.49354000', '0.49681000'],
+#               'o': '0.45730000'}}
 ```
 
 **You want to say thanks?**
