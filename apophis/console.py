@@ -37,9 +37,13 @@ def open_exchange(
     exchange = exchange_(**api_credentials)
 
 
-@app.command()
-def query(method: str, data: str = None) -> None:
+@app.command(
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
+def query(data: typer.Context, method: str) -> None:
     """Apophis calls the Kraken."""
+    data = dict([item.strip("--").split("=") for item in data.args])
+
     client = exchange.api
     try:
         response = client.query(method=method, data=data)
@@ -74,6 +78,7 @@ def sell(pair: str, volume: float, price: float = None) -> None:
 
 @app.command()
 def price(pair: str):
+    """Current market price."""
     price = exchange.market_price(pair)
 
     typer.echo(f"{pair}: {price}")
