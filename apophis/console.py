@@ -44,9 +44,8 @@ def query(data: typer.Context, method: str) -> None:
     """Apophis calls the Kraken."""
     data = dict([item.strip("--").split("=") for item in data.args])
 
-    client = exchange.api
     try:
-        response = client.query(method=method, data=data)
+        response = exchange.api.query(method=method, data=data)
     except ConnectionError as conn_err:
         typer.echo(f"Connection issue:\n{conn_err}")
         raise typer.Exit(code=1)

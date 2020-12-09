@@ -13,6 +13,14 @@ https://pypi.org/project/apophis
 Apophis is a Python client for Kraken's REST API. It provides a common interface
 for both *Kraken* and *Kraken Future*.
 
+**You want to say thanks?**
+
+<p align="center">
+<a href="https://www.buymeacoffee.com/tupui" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee: https://www.buymeacoffee.com/tupui" height=30" ></a>
+</p>
+
+## Quickstart
+
 Public endpoints can be accessed without authentication.
 ```python
 from apophis import Kraken
@@ -57,11 +65,15 @@ with Apophis() as client:
 #               'o': '0.45730000'}}
 ```
 
-**You want to say thanks?**
+Last but not least, there is a fully functional CLI:
+```bash
+❯ apophis query Ticker pair=XXRPZEUR
+{'error': [], 'result': {'XXRPZEUR': {'a': ['0.45586000', '6356', '6356.000'], 'b': ['0.45561000', '63000', '63000.000'], 'c': ['0.45521000', '71.58800000'], 'v': ['27100060.07361936', '45765330.64314690'], 'p': ['0.43901689', '0.45396762'], 't': [11527, 19747], 'l': ['0.41500000', '0.41500000'], 'h': ['0.46588000', '0.49300000'], 'o': '0.46153000'}}}
+❯ apophis price "XXRPZEUR"
+XXRPZEUR: 0.45352
+```
 
-<p align="center">
-<a href="https://www.buymeacoffee.com/tupui" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee: https://www.buymeacoffee.com/tupui" height=30" ></a>
-</p>
+
 
 
 ## Installation
