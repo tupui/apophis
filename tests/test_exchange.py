@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from apophis import Kraken, KrakenFuture
@@ -35,9 +36,14 @@ def test_exchange():
 
 def test_ohlc():
     with Kraken() as exchange:
-        ohlc, last = exchange.ohlc("XXRPZEUR")
+        ohlc = exchange.ohlc("XXRPZEUR")
+        ohlc_historical = exchange.ohlc_from_trades("XXRPZEUR")
 
     assert len(ohlc) == 720
+    assert 719 <= len(ohlc_historical) <= 721
+
+    df_diff = pd.concat([ohlc, ohlc_historical]).drop_duplicates(keep=False)
+    assert len(df_diff) / 720 < 0.05
 
 
 def test_live():

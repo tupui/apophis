@@ -257,9 +257,65 @@ class Kraken(Exchange):
 
             return True, fee
 
-    def ohlc(
-        self, pair: str, interval: int = 1, since=None
-    ) -> Tuple[pd.DataFrame, int]:
+    def ohlc_from_trades(
+        self, pair: str, interval: int = 1, since: int = None, until: int = None
+    ) -> pd.DataFrame:
+        """OHLC historical data for a given pair.
+
+        Calculate OHLC based on trades. Can be slow if going back too far.
+
+        Parameters
+        ----------
+        pair : str
+            Pair to get data from.
+        interval : int
+            Time frame interval in minutes.
+        since :
+            Starting time.
+        until :
+            Ending time.
+
+        Returns
+        -------
+        OHLC : dataframe
+            OHLC data
+
+        """
+        if until is None:
+            until = self.api.query("Time")["result"]["unixtime"]
+        if since is None:
+            since = until - 3600 * 12
+
+        until = until * 1e9
+        since = int(since * 1e9)
+
+        data = []
+        while float(since) < until:
+            response = self.api.query("Trades", {"pair": pair, "since": since})
+            since = response["result"]["last"]
+            data.extend(response["result"][pair])
+
+        ohlc = pd.DataFrame(
+            data,
+            columns=[
+                "price",
+                "volume",
+                "time",
+                "buy/sell",
+                "market/limit",
+                "misc",
+            ],
+        )
+        ohlc["date"] = pd.to_datetime(ohlc.time, unit="s")
+        ohlc.sort_values("date", ascending=True, inplace=True)
+        ohlc.set_index("date", inplace=True)
+        ohlc.loc[:, "price"] = ohlc["price"].astype(float)
+
+        ohlc = ohlc.price
+
+        return ohlc.resample(f"{interval}T").ohlc().ffill()
+
+    def ohlc(self, pair: str, interval: int = 1, since=None) -> pd.DataFrame:
         """OHLC data for a given pair.
 
         Regardless of the origin (``since``), only the last 720 values are
@@ -278,8 +334,6 @@ class Kraken(Exchange):
         -------
         OHLC : dataframe
             OHLC data
-        last : int
-            Last timestamp of the data.
 
         """
         # query
@@ -288,7 +342,6 @@ class Kraken(Exchange):
 
         # create dataframe
         ohlc = pd.DataFrame(res["result"][pair])
-        last = res["result"]["last"]
 
         # set time, column names
         ohlc.columns = [
@@ -305,11 +358,13 @@ class Kraken(Exchange):
         ohlc.sort_values("date", ascending=True, inplace=True)
         ohlc.set_index("date", inplace=True)
 
+        ohlc = ohlc.drop(columns=["time", "vwap", "volume", "count"])
+
         # dtypes
-        for col in ["open", "high", "low", "close", "vwap", "volume"]:
+        for col in ["open", "high", "low", "close"]:
             ohlc.loc[:, col] = ohlc[col].astype(float)
 
-        return ohlc, last
+        return ohlc
 
 
 class KrakenFuture(Exchange):
