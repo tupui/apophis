@@ -3,6 +3,8 @@ import time
 from abc import ABC, abstractmethod
 from typing import Tuple
 
+import pandas as pd
+
 from .apophis import Apophis
 
 
@@ -165,7 +167,7 @@ class Exchange(ABC):
         return processed
 
     def sell(self, pair: str, volume: float, price: float) -> float:
-        """
+        """Sell order.
 
         Parameters
         ----------
@@ -254,6 +256,60 @@ class Kraken(Exchange):
                 fee = float(response["result"]["closed"][txid]["fee"])
 
             return True, fee
+
+    def ohlc(
+        self, pair: str, interval: int = 1, since=None
+    ) -> Tuple[pd.DataFrame, int]:
+        """OHLC data for a given pair.
+
+        Regardless of the origin (``since``), only the last 720 values are
+        returned.
+
+        Parameters
+        ----------
+        pair : str
+            Pair to get data from.
+        interval : int
+            Time frame interval in minutes.
+        since :
+            Starting time.
+
+        Returns
+        -------
+        OHLC : dataframe
+            OHLC data
+        last : int
+            Last timestamp of the data.
+
+        """
+        # query
+        payload = {"pair": pair, "interval": interval, "since": since}
+        res = self.api.query("OHLC", data=payload)
+
+        # create dataframe
+        ohlc = pd.DataFrame(res["result"][pair])
+        last = res["result"]["last"]
+
+        # set time, column names
+        ohlc.columns = [
+            "time",
+            "open",
+            "high",
+            "low",
+            "close",
+            "vwap",
+            "volume",
+            "count",
+        ]
+        ohlc["date"] = pd.to_datetime(ohlc.time, unit="s")
+        ohlc.sort_values("date", ascending=True, inplace=True)
+        ohlc.set_index("date", inplace=True)
+
+        # dtypes
+        for col in ["open", "high", "low", "close", "vwap", "volume"]:
+            ohlc.loc[:, col] = ohlc[col].astype(float)
+
+        return ohlc, last
 
 
 class KrakenFuture(Exchange):

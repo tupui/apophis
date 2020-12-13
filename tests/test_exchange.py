@@ -33,6 +33,13 @@ def test_exchange():
         assert exchange.fee == sell_fee + buy_fee
 
 
+def test_ohlc():
+    with Kraken() as exchange:
+        ohlc, last = exchange.ohlc("XXRPZEUR")
+
+    assert len(ohlc) == 720
+
+
 def test_live():
     """Cannot test more without private API keys."""
     with pytest.raises(ConnectionError):
