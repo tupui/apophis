@@ -1,7 +1,12 @@
+import datetime
 import time
 
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import List, Tuple
+
+import pandas as pd
+
+from dateutil import parser
 
 from .apophis import Apophis
 
@@ -36,15 +41,18 @@ class Exchange(ABC):
 
     * ``__init__(key, secret, future=False, live=False)``: at least these
       arguments should be passed to the constructor.
+    * ``time()``: Unix server time.
     * ``market_price(pair)``: Get the market price for a pair.
     * ``_fee()``: Returns maker and taker fees.
     * ``_order(pair, coins, price, side)``: Place an order with ``side`` one of
       ``sell``, ``buy``.
+    * ``_trades(pair, since, until)``: List of price history in a time frame.
 
-    Optionally, 2 other methods can be overwritten by subclasses:
+    Optionally, 3 other methods can be overwritten by subclasses:
 
     * ``buy``: Buy logic. Calls the underlying ``_order``.
     * ``sell``: Sell logic. Calls the underlying ``_order``.
+    * ``ohlc``: OHLC data. Falls back to ``ohlc_history``.
 
     """
 
@@ -73,6 +81,9 @@ class Exchange(ABC):
     def close(self):
         """Close the session."""
         self.api.session.close()
+
+    def time(self) -> float:
+        """Unix server time in second."""
 
     @abstractmethod
     def market_price(self, pair: str) -> float:
@@ -165,7 +176,7 @@ class Exchange(ABC):
         return processed
 
     def sell(self, pair: str, volume: float, price: float) -> float:
-        """
+        """Sell order.
 
         Parameters
         ----------
@@ -197,12 +208,102 @@ class Exchange(ABC):
 
         return processed
 
+    @abstractmethod
+    def _trades(
+        self, pair: str, since: float, until: float
+    ) -> List[Tuple[float, float]]:
+        """Trades price history.
+
+        Parameters
+        ----------
+        pair : str
+            Pair to get data from.
+        since :
+            Starting time.
+        until :
+            Ending time.
+
+        Returns
+        -------
+        trades : dataframe
+            Trades data.
+
+        """
+
+    def ohlc_from_trades(
+        self, pair: str, interval: int = 1, since: int = None, until: int = None
+    ) -> pd.DataFrame:
+        """OHLC historical data for a given pair.
+
+        Calculate OHLC based on trades. Can be slow if going back too far.
+        If ``since`` and ``until`` are None, fetch the last 12 hours.
+
+        Parameters
+        ----------
+        pair : str
+            Pair to get data from.
+        interval : int
+            Time frame interval in minutes.
+        since :
+            Starting time.
+        until :
+            Ending time.
+
+        Returns
+        -------
+        OHLC : dataframe
+            OHLC data
+
+        """
+        if until is None:
+            until = self.time()
+        if since is None:
+            since = until - 3600 * 12
+
+        data = self._trades(pair=pair, since=since, until=until)
+
+        ohlc = pd.DataFrame(data, columns=["time", "price"])
+        ohlc["date"] = pd.to_datetime(ohlc.time, unit="s")
+        ohlc.sort_values("date", ascending=True, inplace=True)
+        ohlc.set_index("date", inplace=True)
+        ohlc = ohlc.drop(columns=["time"])
+
+        ohlc = ohlc.price
+
+        return ohlc.resample(f"{interval}T").ohlc().ffill()
+
+    def ohlc(self, pair: str, interval: int = 1, since: int = None) -> pd.DataFrame:
+        """OHLC data for a given pair.
+
+        Regardless of the origin (``since``), only the last values are
+        returned.
+
+        Parameters
+        ----------
+        pair : str
+            Pair to get data from.
+        interval : int
+            Time frame interval in minutes.
+        since :
+            Starting time.
+
+        Returns
+        -------
+        OHLC : dataframe
+            OHLC data
+
+        """
+        return self.ohlc_from_trades(pair=pair, interval=interval, since=since)
+
 
 class Kraken(Exchange):
     """Exchange for Kraken."""
 
     def __init__(self, key: str = None, secret: str = None, live: bool = False):
         super().__init__(key=key, secret=secret, live=live, future=False)
+
+    def time(self) -> float:
+        return self.api.query("Time")["result"]["unixtime"]
 
     def market_price(self, pair: str) -> float:
         response = self.api.query("Ticker", {"pair": pair})
@@ -255,12 +356,84 @@ class Kraken(Exchange):
 
             return True, fee
 
+    def _trades(
+        self, pair: str, since: float, until: float
+    ) -> List[Tuple[float, float]]:
+
+        until *= 1e9
+        since = int(since * 1e9)
+        data = []
+        while float(since) < until:
+            response = self.api.query("Trades", {"pair": pair, "since": since})
+            since = response["result"]["last"]
+            trades = response["result"][pair]
+            data.extend([(trade[2], float(trade[0])) for trade in trades])
+            if len(trades) <= 1:
+                break
+
+        return data
+
+    def ohlc(self, pair: str, interval: int = 1, since=None) -> pd.DataFrame:
+        """OHLC data for a given pair.
+
+        Regardless of the origin (``since``), only the last 720 values are
+        returned.
+
+        Parameters
+        ----------
+        pair : str
+            Pair to get data from.
+        interval : int
+            Time frame interval in minutes.
+        since :
+            Starting time.
+
+        Returns
+        -------
+        OHLC : dataframe
+            OHLC data
+
+        """
+        # query
+        payload = {"pair": pair, "interval": interval, "since": since}
+        res = self.api.query("OHLC", data=payload)
+
+        # create dataframe
+        ohlc = pd.DataFrame(res["result"][pair])
+
+        # set time, column names
+        ohlc.columns = [
+            "time",
+            "open",
+            "high",
+            "low",
+            "close",
+            "vwap",
+            "volume",
+            "count",
+        ]
+        ohlc["date"] = pd.to_datetime(ohlc.time, unit="s")
+        ohlc.sort_values("date", ascending=True, inplace=True)
+        ohlc.set_index("date", inplace=True)
+
+        ohlc = ohlc.drop(columns=["time", "vwap", "volume", "count"])
+
+        # dtypes
+        for col in ["open", "high", "low", "close"]:
+            ohlc.loc[:, col] = ohlc[col].astype(float)
+
+        return ohlc
+
 
 class KrakenFuture(Exchange):
     """Exchange for Kraken Future."""
 
     def __init__(self, key: str = None, secret: str = None, live: bool = False):
         super().__init__(key=key, secret=secret, live=live, future=True)
+
+    def time(self) -> float:
+        iso_time = self.api.query("instruments")["serverTime"]
+        return parser.parse(iso_time).timestamp()
 
     def market_price(self, pair: str) -> float:
         ticks = self.api.query("tickers")
@@ -311,3 +484,22 @@ class KrakenFuture(Exchange):
                 fee = volume * price * self.fee_maker
 
             return True, fee
+
+    def _trades(
+        self, pair: str, since: float, until: float
+    ) -> List[Tuple[float, float]]:
+        data = []
+        while since < until:
+            until = datetime.datetime.fromtimestamp(until)
+            until = until.isoformat() + "Z"
+            response = self.api.query("history", {"symbol": pair, "lastTime": until})
+            trades = response["history"]
+            trades = [
+                (parser.parse(trade["time"]).timestamp(), trade["price"])
+                for trade in trades
+            ]
+            until = trades[0][0]
+
+            data.extend(trades)
+
+        return data

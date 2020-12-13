@@ -4,7 +4,7 @@ https://github.com/tupui/apophis/actions?query=workflow%3A%22Tests%22
 [![Code Quality](https://github.com/tupui/apophis/workflows/Code%20Quality/badge.svg?branch=master)](
 https://github.com/tupui/apophis/actions?query=workflow%3A%22Code+Quality%22
 )
-[![Package version](https://img.shields.io/pypi/v/apophis?color=%2334D058&label=pypi%20package)](
+[![Package version](https://img.shields.io/pypi/v/apophis?label=pypi%20package)](
 https://pypi.org/project/apophis
 )
 
