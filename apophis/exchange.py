@@ -1,4 +1,5 @@
 import datetime
+import random
 import time
 
 from abc import ABC, abstractmethod
@@ -160,13 +161,14 @@ class Exchange(ABC):
             True if the transaction succeeded.
 
         """
-        print(f"Buying {volume} {pair} at {price} -> {volume * price}€")
+        print(f"Buying {volume} {pair} at {price} -> {volume * price} {pair[-3:]}")
         if self.live:
             processed, fee = self._order(
                 pair=pair, volume=volume, price=price, side="buy"
             )
         else:
             fee = volume * price * self.fee_taker
+            time.sleep(10 + random.random() * 10)
             processed = True
 
         if processed:
@@ -193,14 +195,15 @@ class Exchange(ABC):
             True if the transaction succeeded.
 
         """
-        print(f"Selling {volume} {pair} at {price} -> {volume * price}€")
+        print(f"Selling {volume} {pair} at {price} -> {volume * price} {pair[-3:]}")
         if self.live:
             processed, fee = self._order(
                 pair=pair, volume=volume, price=price, side="sell"
             )
         else:
-            processed = True
             fee = volume * price * self.fee_maker
+            time.sleep(10 + random.random() * 10)
+            processed = True
 
         if processed:
             self.fee += fee
@@ -329,8 +332,8 @@ class Kraken(Exchange):
             "pair": pair,
             "type": side,
             "ordertype": "limit",
-            "price": str(price),
-            "volume": str(volume),
+            "price": f"{price:.10f}",
+            "volume": f"{volume:.20f}",
             # "validate": True
         }
         response = self.api.query("AddOrder", payload)
@@ -451,8 +454,8 @@ class KrakenFuture(Exchange):
             "orderType": "lmt",
             "symbol": pair,
             "side": side,
-            "limitPrice": price,
-            "size": volume,
+            "limitPrice": f"{price:.10f}",
+            "size": f"{volume:.20f}",
         }
         response = self.api.query("sendorder", payload)
 
@@ -477,6 +480,8 @@ class KrakenFuture(Exchange):
                 not_done = not any(
                     [event["order_id"] == txid for event in response["fills"]]
                 )
+
+            print("Order completed!")
 
             if type == "buy":
                 fee = volume * price * self.fee_taker
