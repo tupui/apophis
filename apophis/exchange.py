@@ -314,6 +314,33 @@ class Kraken(Exchange):
 
         return price
 
+    def book(self, pair: str, count: int = 1) -> Tuple[List[float], List[float]]:
+        """Order book.
+
+        Parameters
+        ----------
+        pair : str
+            Pair to get data from.
+        count : int
+            Last `count` transaction in the book.
+
+        Returns
+        -------
+        asks, bids : list(float)
+            Ask and bid prices in the book.
+
+        """
+        response = self.api.query("Depth", {"pair": pair, "count": count})
+        book = response["result"][pair]
+
+        asks = book["asks"]
+        bids = book["bids"]
+
+        asks = [float(ask[0]) for ask in asks]
+        bids = [float(bid[0]) for bid in bids]
+
+        return asks, bids
+
     def _fees(self) -> Tuple[float, float]:
         try:
             fee_info = self.api.query("TradeVolume", {"pair": "XXRPZEUR"})

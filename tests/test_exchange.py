@@ -34,6 +34,24 @@ def test_exchange():
         assert exchange.fee == sell_fee + buy_fee
 
 
+def test_book():
+    with Kraken() as exchange:
+        asks, bids = exchange.book("XXRPZEUR")
+
+        assert len(asks) == len(bids) == 1
+        assert asks[0] >= bids[0]
+
+        asks, bids = exchange.book("XXRPZEUR", 2)
+
+        assert len(asks) == len(bids) == 2
+
+        assert asks[1] >= asks[0]
+        assert bids[0] >= bids[1]
+
+        assert asks[0] >= bids[0]
+        assert asks[0] >= bids[1]
+
+
 def test_ohlc():
     with Kraken() as exchange:
         ohlc = exchange.ohlc("XXRPZEUR")
