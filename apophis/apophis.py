@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import hmac
+import threading
 import time
 import urllib.parse
 
@@ -127,6 +128,8 @@ class Apophis:
 
         self.session.headers.update({"User-Agent": "Apophis/" + version})
 
+        self.lock = threading.Lock()
+
         self.timeout = 10
         self.response = None
         self._json_options = {}
@@ -141,7 +144,7 @@ class Apophis:
         """Close the session."""
         self.session.close()
 
-    def _query(self, method: str, data: Dict, endpoint: str, headers: Dict) -> Dict:
+    def _query(self, method: str, data: Dict, endpoint: str) -> Dict:
         """Low-level query handling.
 
         Parameters
@@ -152,8 +155,6 @@ class Apophis:
             API request parameters.
         endpoint : str
             API URL path sans host.
-        headers: dict, optional
-            HTTPS headers.
 
         Returns
         -------
@@ -165,10 +166,10 @@ class Apophis:
 
         if method in API_PRIVATE_GET or method in API_PUBLIC:
             session_call = self.session.get
-            params = {"params": data, "headers": headers}
+            params = {"params": data}
         elif method in API_PRIVATE_POST:
             session_call = self.session.post
-            params = {"data": data, "headers": headers}
+            params = {"data": data}
         else:
             raise KeyError(f"Invalid method {method}")
 
@@ -177,7 +178,15 @@ class Apophis:
         api_call = 0
         sleeper = [0, 2, 4, 0]
         while api_call < 4:
+
+            self.lock.acquire()  # nonce call must be sequential
+            headers = self._sign_message(data, endpoint)
+            params["headers"] = headers
+
             with session_call(url, timeout=self.timeout, **params) as self.response:
+
+                self.lock.release()
+
                 # Look for errors
                 resp = self.response.json(**self._json_options)
                 if not self.future:
@@ -237,13 +246,11 @@ class Apophis:
 
             if not self.future:
                 endpoint = self.apiversion + "private/" + method
-            headers = self._sign_message(data, endpoint)
         else:
             if not self.future:
                 endpoint = self.apiversion + "public/" + method
-            headers = {}
 
-        return self._query(method, data, endpoint, headers)
+        return self._query(method, data, endpoint)
 
     def _sign_message(self, data: Dict, endpoint: str) -> Dict[str, str]:
         """Sign request data according to Kraken's scheme.
