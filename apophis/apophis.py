@@ -177,32 +177,31 @@ class Apophis:
         api_call = 0
         sleeper = [0, 2, 4, 0]
         while api_call < 4:
-            self.response = session_call(url, timeout=self.timeout, **params)
-
-            # Look for errors
-            resp = self.response.json()
-            if not self.future:
-                error = resp["error"]
-            else:
-                if resp["result"] == "success":
-                    error = []
-                else:
+            with session_call(url, timeout=self.timeout, **params) as self.response:
+                # Look for errors
+                resp = self.response.json(**self._json_options)
+                if not self.future:
                     error = resp["error"]
-            if error:
-                time.sleep(sleeper[api_call])
-                api_call += 1
-                continue
+                else:
+                    if resp["result"] == "success":
+                        error = []
+                    else:
+                        error = resp["error"]
+                if error:
+                    time.sleep(sleeper[api_call])
+                    api_call += 1
+                    continue
 
-            if self.response.status_code not in (200, 201, 202):
-                self.response.raise_for_status()
-            else:
-                break
+                if self.response.status_code not in (200, 201, 202):
+                    self.response.raise_for_status()
+                else:
+                    break
         else:
             raise ConnectionError(
                 f"{error}\n" f"-> URL: {url}\n-> Params: {params}\n"  # noqa
             )
 
-        return self.response.json(**self._json_options)
+        return resp
 
     def query(self, method: str, data: Optional[Dict] = None):
         """Performs an API query that requires a valid key/secret pair.
