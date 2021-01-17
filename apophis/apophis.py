@@ -180,8 +180,9 @@ class Apophis:
         while api_call < 4:
 
             self.lock.acquire()  # nonce call must be sequential
-            headers = self._sign_message(data, endpoint)
-            params["headers"] = headers
+            if method in API_PRIVATE_GET or method in API_PRIVATE_POST:
+                headers = self._sign_message(data, endpoint)
+                params["headers"] = headers
 
             with session_call(url, timeout=self.timeout, **params) as self.response:
 

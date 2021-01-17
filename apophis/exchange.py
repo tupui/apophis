@@ -168,7 +168,7 @@ class Exchange(ABC):
             )
         else:
             fee = volume * price * self.fee_taker
-            time.sleep(10 + random.random() * 10)
+            time.sleep(1 + random.random() * 1)
             processed = True
 
         if processed:
@@ -202,7 +202,7 @@ class Exchange(ABC):
             )
         else:
             fee = volume * price * self.fee_maker
-            time.sleep(10 + random.random() * 10)
+            time.sleep(1 + random.random() * 1)
             processed = True
 
         if processed:
