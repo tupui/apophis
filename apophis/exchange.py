@@ -3,11 +3,13 @@ import random
 import time
 
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import pandas as pd
 
 from dateutil import parser
+
+from apophis.binance import BinanceAPI
 
 from .apophis import Apophis
 
@@ -228,8 +230,8 @@ class Exchange(ABC):
 
         Returns
         -------
-        trades : dataframe
-            Trades data.
+        trades : list(int, float)
+            Trades data: timestamp and price.
 
         """
 
@@ -533,5 +535,115 @@ class KrakenFuture(Exchange):
             until = trades[0][0]
 
             data.extend(trades)
+
+        return data
+
+
+class Binance(Exchange):
+    def __init__(self, key: str = None, secret: str = None, live: bool = False):
+        super().__init__(key=key, secret=secret, live=live, future=False)
+
+        self.api = BinanceAPI(key=key, secret=secret)
+
+    def time(self) -> float:
+        return self.api.query("get", "time")["serverTime"] / 1000.0
+
+    def market_price(self, pair: str = None) -> Union[float, Dict]:
+        response = self.api.query("get", "ticker/price", {"symbol": pair})
+        if pair is not None:
+            return float(response["price"])
+        else:
+            prices = {symbol["symbol"]: float(symbol["price"]) for symbol in response}
+            return prices
+
+    def book(self, pair: str, count: int = 5) -> Tuple[List[float], List[float]]:
+        """Order book.
+
+        Parameters
+        ----------
+        pair : str
+            Pair to get data from.
+        count : int
+            Last `count` transaction in the book.
+
+        Returns
+        -------
+        asks, bids : list(float)
+            Ask and bid prices in the book.
+
+        """
+        response = self.api.query("get", "depth", {"symbol": pair, "limit": count})
+
+        asks = response["asks"]
+        bids = response["bids"]
+
+        asks = [float(ask[0]) for ask in asks]
+        bids = [float(bid[0]) for bid in bids]
+
+        return asks, bids
+
+    def _fees(self) -> Tuple[float, float]:
+        fee_maker = 0.1
+        fee_taker = 0.1
+
+        fee_maker /= 100
+        fee_taker /= 100
+        return fee_maker, fee_taker
+
+    def _order(self, pair: str, volume: float, price: float, side: str):
+        payload = {
+            "symbol": pair,
+            "side": side,
+            "type": "limit",
+            "timeInForce": "GTC",
+            "price": f"{price:.10f}",
+            "quantity": f"{volume:.20f}",
+        }
+        response = self.api.query("post", "order", payload)
+
+        if "clientOrderId" not in response:
+            print(f"Cannot place order! -> {response}")
+            return False, None
+        else:
+            order_id = response["clientOrderId"]
+
+            time.sleep(5)
+
+            payload = {"symbol": pair, "origClientOrderId": order_id}
+            response = self.api.query("get", "order", payload)
+
+            while response["status"] != "FILLED":
+                print("Order not completed yet!")
+                time.sleep(5)
+                response = self.api.query("get", "order", payload)
+
+            if type == "buy":
+                fee = self.fee_taker
+            else:
+                fee = self.fee_maker
+
+            return True, fee
+
+    def _trades(
+        self, pair: str, since: float, until: float
+    ) -> List[Tuple[float, float]]:
+        response = self.api.query("get", "trades", {"symbol": pair, "limit": 1000})
+        until = response[-1]["time"] / 1000.0
+        from_id = response[0]["id"] - 1000
+        data = [(trade["time"] / 1000.0, float(trade["price"])) for trade in response]
+
+        while since < until:
+            response = self.api.query(
+                "get",
+                "historicalTrades",
+                {"symbol": pair, "fromId": from_id, "limit": 1000},
+            )
+            until = response[-1]["time"] / 1000.0
+            from_id -= 1000
+            data.extend(
+                [(trade["time"] / 1000.0, float(trade["price"])) for trade in response]
+            )
+            if len(response) <= 1:
+                break
 
         return data
